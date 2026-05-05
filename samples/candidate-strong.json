@@ -1,0 +1,12 @@
+{
+  "Name": "Maria Santos",
+  "Email": "danny.ngipol+strong@gmail.com",
+  "Location": "Manila, Philippines",
+  "Past Experience": "5 years as Operations Lead at a SaaS company. Built end-to-end onboarding automations using Zapier, Make, and Airtable. Designed a candidate pipeline that reduced screening time from 3 days to 4 hours by chaining a typeform → AI summarizer → recruiter Slack channel. Documented every workflow with diagrams and a runbook covering retries, dead letters, and what to check when something breaks.",
+  "Tools Used": "Airtable, n8n, Zapier, Make, Notion, Slack, Google Workspace, ClickUp, OpenAI API, Groq",
+  "AI Usage Example": "I built a Claude-powered triage system for our support inbox: incoming tickets → embedding lookup against past resolved tickets → if confidence > 0.8, draft a reply and route to the answering agent; otherwise escalate. Reduced first-response time by 65%. I monitored hallucinations with a weekly sample of 30 tickets reviewed manually.",
+  "Q1 Answer": "I would design a candidate workflow as four discrete stages: intake (form → database), evaluation (rubric prompt → score), routing (score thresholds → outcome), notification (template → email). Each stage is a separate workflow so they can be reused independently and failures in one don't cascade. I'd add idempotency keys on the intake webhook to handle double-submits, retries with exponential backoff on the AI call, and a dead-letter queue for anything that fails three times.",
+  "Q2 Answer": "For reliability I would: log every AI call's input and output for audit; calibrate the rubric against ten known-good and known-bad past candidates and re-run them on every prompt change; flag candidates where two evaluator runs disagree by more than two points for human review; and never auto-route a candidate to a default outcome if the AI returns malformed output — that's a silent bug that hurts candidates.",
+  "Expected Pay": "PHP 80,000",
+  "Hours Per Week": "40"
+}

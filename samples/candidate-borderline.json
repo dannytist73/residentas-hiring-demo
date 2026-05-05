@@ -1,0 +1,12 @@
+{
+  "Name": "John Cruz",
+  "Email": "danny.ngipol+borderline@gmail.com",
+  "Location": "Cebu, Philippines",
+  "Past Experience": "3 years as a virtual assistant doing data entry and email management for a US client. Set up some Google Sheets automations using formulas and a few Zapier zaps to sync forms to sheets. Helped my team move from manual tracking to a Notion database last year.",
+  "Tools Used": "Google Sheets, Notion, Zapier, Slack, Trello",
+  "AI Usage Example": "I use ChatGPT to help me draft emails and summarize long documents my client sends me.",
+  "Q1 Answer": "I would build a form that goes into Airtable. Then have someone review the candidates and decide who to move forward. Probably use a checklist to score them so it is consistent.",
+  "Q2 Answer": "I would test the workflow before going live and ask my team to review. If something breaks I would let my client know right away.",
+  "Expected Pay": "PHP 35,000",
+  "Hours Per Week": "40"
+}
