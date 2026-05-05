@@ -1,0 +1,1 @@
+# TODO: Replace this line with the Airtable base template URL after completing Task 22 (base setup)
