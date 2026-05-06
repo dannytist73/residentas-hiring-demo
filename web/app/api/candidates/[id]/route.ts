@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getCandidate, updateCandidateDraft, triggerSend } from "@/lib/airtable";
+import { getCandidate, updateCandidateDraft, markReadyToSend } from "@/lib/airtable";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +8,7 @@ const PatchBody = z.object({
   subject: z.string().max(500).optional(),
   body: z.string().max(20000).optional(),
   send: z.literal(true).optional(),
+  readyToSend: z.literal(true).optional(),
 });
 
 type Params = { params: Promise<{ id: string }> };
@@ -36,8 +37,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (body.subject !== undefined || body.body !== undefined) {
       await updateCandidateDraft(id, { subject: body.subject, body: body.body });
     }
-    if (body.send) {
-      await triggerSend(id);
+    if (body.send || body.readyToSend) {
+      await markReadyToSend(id);
     }
     return NextResponse.json({ ok: true });
   } catch (e) {

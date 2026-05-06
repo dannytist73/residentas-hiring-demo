@@ -3,31 +3,1184 @@
   "nodes": [
     {
       "parameters": {
-        "pollTimes": {
-          "item": [{"mode": "everyMinute"}]
-        },
+        "mode": "runOnceForEachItem",
+        "jsCode": "\nconst item = $input.item; \nconst f = item.json.fields || {};\n\nconst systemPrompt = [\n  \"You are an evaluator scoring candidate responses against a fixed rubric.\",\n  \"You MUST return only valid JSON matching the provided schema.\",\n  \"You MUST score conservatively. Reserve 5 only for exceptional answers.\",\n  \"Reserve 0 for non-answers. Most real answers fall in the 2-4 range.\",\n  \"Score each criterion independently. Do not let one weak area drag others.\",\n  \"\",\n  \"Rubric (0-5 each):\",\n  \"- process_thinking: clarity of problem framing and structure\",\n  \"- practical_automation: tools chosen, feasibility, hands-on signal\",\n  \"- clarity_communication: structured, clear, well-organized writing\",\n  \"- execution_logic: logical step-by-step thinking\",\n  \"- reliability_awareness: handling errors and edge cases\",\n  \"\",\n  \"For each criterion, write a 1-2 sentence rationale citing specific phrases from the candidate's answer.\",\n  \"\",\n  \"Output schema:\",\n  '{\"scores\":{\"process_thinking\":int,\"practical_automation\":int,\"clarity_communication\":int,\"execution_logic\":int,\"reliability_awareness\":int},\"rationales\":{\"process_thinking\":string,\"practical_automation\":string,\"clarity_communication\":string,\"execution_logic\":string,\"reliability_awareness\":string}}',\n  \"\",\n  \"Return only the JSON object. No prose before or after.\"\n].join(\"\\n\");\n\nconst userPrompt = [\n  `Candidate name: ${f.Name || \"Unknown\"}`,\n  \"\",\n  \"Past experience:\",\n  f['Past Experience'] || \"N/A\",\n  \"\",\n  \"Tools used:\",\n  f['Tools Used'] || \"N/A\",\n  \"\",\n  \"AI usage example:\",\n  f['AI Usage Example'] || \"N/A\",\n  \"\",\n  \"Q1 answer:\",\n  f['Q1 Answer'] || \"N/A\",\n  \"\",\n  \"Q2 answer:\",\n  f['Q2 Answer'] || \"N/A\"\n].join(\"\\n\");\n\nreturn {\n    candidateId: item.json.id,\n    candidateName: f.Name,\n    payload: {\n      model: \"llama-3.3-70b-versatile\",\n      temperature: 0.2,\n      response_format: { type: \"json_object\" },\n      messages: [\n        { role: \"system\", content: systemPrompt },\n        { role: \"user\", content: userPrompt }\n      ]\n    }\n};"
+      },
+      "id": "aaf46451-d463-4510-9590-9d27ccab757f",
+      "name": "Build Scoring Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item;\nconst raw = item.json.text; \n\nlet parsed;\ntry {\n  parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;\n} catch (e) {\n  throw new Error(`Invalid JSON from Groq for item: ${String(raw).slice(0, 500)}`);\n}\n\nconst s = parsed.scores || {};\nconst r = parsed.rationales || {};\n\nif (!parsed.scores || !parsed.rationales) {\n  throw new Error('Groq response missing scores or rationales');\n}\n\n// Ensure scores are treated as numbers\nconst total = (Number(s.process_thinking) || 0) + \n              (Number(s.practical_automation) || 0) +\n              (Number(s.clarity_communication) || 0) + \n              (Number(s.execution_logic) || 0) +\n              (Number(s.reliability_awareness) || 0);\n\nlet outcome = 'Reject';\nif (total >= 20) outcome = 'Advance';\nelse if (total >= 15) outcome = 'Review';\n\nconst prev = $('Build Scoring Request').item;\n\nreturn {\n  candidateId: prev.json.candidateId,\n  candidateName: prev.json.candidateName,\n  scores: s,\n  rationales: r,\n  total,\n  outcome\n};"
+      },
+      "id": "86d7ac72-ac32-418a-8a39-5076e51362bd",
+      "name": "Parse Scores",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $input.first().json;\n\nlet f = {};\ntry {\n  f = $('Airtable Trigger').first().json.fields || {};\n} catch (e) {\n  f = {}; \n}\n\nconst systemPrompt = [\n  \"You generate exactly ONE short sentence (10-25 words) to be inserted into a hiring email.\",\n  \"You MUST write in the SECOND PERSON (using 'you', 'your').\", // New Rule\n  \"DO NOT mention the candidate's name in the sentence.\", // New Rule\n  \"Follow the rules for the given outcome strictly.\",\n  \"\",\n  \"For Advance: Reference the strongest specific element of the candidate's answers. Be warm and specific.\",\n  \"For Review: Be neutral and brief. Acknowledge their effort. NEVER hint they are borderline.\",\n  \"For Reject: Be neutral, brief, and encouraging. NEVER give reasons for rejection. NEVER reference weaknesses.\",\n  \"\",\n  \"Return only the sentence. No quotes, no prose around it, no preamble.\"\n].join(\"\\n\");\n\nconst rationalesSummary = Object.entries(ctx.rationales || {})\n  .map(([key, val]) => `${key.replace('_', ' ')}: ${val}`)\n  .join(\"\\n\");\n\nconst userPrompt = [\n  `Outcome: ${ctx.outcome}`,\n  `Candidate name: ${ctx.candidateName}`,\n  \"\",\n  \"--- EVALUATION RATIONALES ---\",\n  rationalesSummary,\n  \"\",\n  \"--- RAW ANSWERS ---\",\n  `Past experience: ${f['Past Experience'] || \"N/A\"}`,\n  `AI usage example: ${f['AI Usage Example'] || \"N/A\"}`,\n  `Q1 answer: ${f['Q1 Answer'] || \"N/A\"}`,\n  \"\",\n  \"Generate the one sentence now.\"\n].join(\"\\n\");\n\nreturn {\n  ...ctx,\n  chatInput: `${systemPrompt}\\n\\n${userPrompt}`\n};"
+      },
+      "id": "3a2f78f2-8dc8-449c-acde-8380dd293534",
+      "name": "Build Line Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        112,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const line = $input.first().json.text.trim();\n\nconst prev = $('Build Line Request').first().json;\n\nreturn {\n  candidateId: prev.candidateId,\n  candidateName: prev.candidateName,\n  scores: prev.scores,\n  rationales: prev.rationales,\n  total: prev.total,\n  outcome: prev.outcome,\n  personalizedLine: line\n};"
+      },
+      "id": "42a11aff-d0bc-4ea0-8bc0-b3d341793c85",
+      "name": "Extract Line",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
         "base": {
           "__rl": true,
-          "value": "REPLACE_WITH_YOUR_BASE_ID",
+          "value": "appfEyum1McBkiaOf",
           "mode": "id"
         },
         "table": {
           "__rl": true,
-          "value": "Candidates",
+          "value": "Templates",
           "mode": "name"
         },
-        "triggerField": "Submitted At",
-        "additionalFields": {}
+        "filterByFormula": "==LOWER({Name}) = LOWER('{{ $('Extract Line').first().json.outcome }}')",
+        "options": {}
       },
-      "id": "wf1-0001",
-      "name": "Airtable Trigger",
-      "type": "n8n-nodes-base.airtableTrigger",
+      "id": "b7fe5027-6c9d-4262-b349-70daa8e7904f",
+      "name": "Get Template",
+      "type": "n8n-nodes-base.airtable",
       "typeVersion": 2,
-      "position": [250, 300],
+      "position": [
+        976,
+        352
+      ],
       "credentials": {
         "airtableTokenApi": {
-          "id": "REPLACE_WITH_AIRTABLE_CREDENTIAL_ID",
-          "name": "Residentas Airtable"
+          "id": "17MJoDY1ygovdzr0",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const tpl = $input.first().json;\n\nconst ctx = $('Extract Line').first().json;\n\nconst subject = tpl.Subject || '';\nconst body = (tpl.Body || '')\n  .replace('{{name}}', ctx.candidateName)\n  .replace('{{personalized_line}}', ctx.personalizedLine);\n\nreturn {\n  ...ctx,\n  subject,\n  body\n};"
+      },
+      "id": "1500b3d4-245a-4915-82d6-15ded0091154",
+      "name": "Render Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1216,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appfEyum1McBkiaOf",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblOnFXpA2eSkEHBT",
+          "mode": "list",
+          "cachedResultName": "Candidates",
+          "cachedResultUrl": "https://airtable.com/appfEyum1McBkiaOf/tblOnFXpA2eSkEHBT"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Practical Automation Score": "={{ $json.scores.practical_automation }}",
+            "Clarity Communication Score": "={{ $json.scores.clarity_communication }}",
+            "Execution Logic Score": "={{ $json.scores.execution_logic }}",
+            "Reliability Awareness Score": "={{ $json.scores.reliability_awareness }}",
+            "Process Thinking Score": "={{ $json.scores.process_thinking }}",
+            "Process Thinking Rationale": "={{ $json.rationales.process_thinking }}",
+            "Practical Automation Rationale": "={{ $json.rationales.practical_automation }}",
+            "Clarity Communication Rationale": "={{ $json.rationales.clarity_communication }}",
+            "Execution Logic Rationale": "={{ $json.rationales.execution_logic }}",
+            "Reliability Awareness Rationale": "={{ $json.rationales.reliability_awareness }}",
+            "Outcome": "={{ $json.outcome }}",
+            "Drafted Email Subject": "={{ $json.subject }}",
+            "Drafted Email Body": "={{ $json.body }}",
+            "Status": "Pending Review",
+            "id": "={{ $json.candidateId }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Date of Birth",
+              "displayName": "Date of Birth",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Gender",
+              "displayName": "Gender",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Male",
+                  "value": "Male"
+                },
+                {
+                  "name": "Female",
+                  "value": "Female"
+                },
+                {
+                  "name": "Prefer not to say",
+                  "value": "Prefer not to say"
+                }
+              ],
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Location",
+              "displayName": "Location",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Job Tenure",
+              "displayName": "Job Tenure",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Past Experience",
+              "displayName": "Past Experience",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Cross-border Finance Experience",
+              "displayName": "Cross-border Finance Experience",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Yes",
+                  "value": "Yes"
+                },
+                {
+                  "name": "No",
+                  "value": "No"
+                },
+                {
+                  "name": "80000",
+                  "value": "80000"
+                }
+              ],
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Tools Used",
+              "displayName": "Tools Used",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "AI Usage Example",
+              "displayName": "AI Usage Example",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Q1 Answer",
+              "displayName": "Q1 Answer",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Q2 Answer",
+              "displayName": "Q2 Answer",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Currently Employed",
+              "displayName": "Currently Employed",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Yes",
+                  "value": "Yes"
+                },
+                {
+                  "name": "No",
+                  "value": "No"
+                }
+              ],
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Expected Pay",
+              "displayName": "Expected Pay",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Hours Per Week",
+              "displayName": "Hours Per Week",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Additional Comments",
+              "displayName": "Additional Comments",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Process Thinking Score",
+              "displayName": "Process Thinking Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Practical Automation Score",
+              "displayName": "Practical Automation Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Clarity Communication Score",
+              "displayName": "Clarity Communication Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Execution Logic Score",
+              "displayName": "Execution Logic Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Reliability Awareness Score",
+              "displayName": "Reliability Awareness Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Process Thinking Rationale",
+              "displayName": "Process Thinking Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Practical Automation Rationale",
+              "displayName": "Practical Automation Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Clarity Communication Rationale",
+              "displayName": "Clarity Communication Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Execution Logic Rationale",
+              "displayName": "Execution Logic Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Reliability Awareness Rationale",
+              "displayName": "Reliability Awareness Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Outcome",
+              "displayName": "Outcome",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Advance",
+                  "value": "Advance"
+                },
+                {
+                  "name": "Review",
+                  "value": "Review"
+                },
+                {
+                  "name": "Reject",
+                  "value": "Reject"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Drafted Email Subject",
+              "displayName": "Drafted Email Subject",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Drafted Email Body",
+              "displayName": "Drafted Email Body",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Pending Scoring",
+                  "value": "Pending Scoring"
+                },
+                {
+                  "name": "Pending Review",
+                  "value": "Pending Review"
+                },
+                {
+                  "name": "Sent",
+                  "value": "Sent"
+                },
+                {
+                  "name": "Failed",
+                  "value": "Failed"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Sent At",
+              "displayName": "Sent At",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Last Error",
+              "displayName": "Last Error",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Send Triggered",
+              "displayName": "Send Triggered",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Total Score",
+              "displayName": "Total Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Submitted At",
+              "displayName": "Submitted At",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "d7fb78e7-5016-409e-87a4-a5617096ae67",
+      "name": "Write Scores and Email",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        1456,
+        352
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "17MJoDY1ygovdzr0",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "2d292e22-48aa-4ed4-b6ee-e9cc9d0a2c07",
+      "name": "WF1 Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1184,
+        864
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appfEyum1McBkiaOf",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblOnFXpA2eSkEHBT",
+          "mode": "list",
+          "cachedResultName": "Candidates",
+          "cachedResultUrl": "https://airtable.com/appfEyum1McBkiaOf/tblOnFXpA2eSkEHBT"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Send Triggered": false,
+            "id": "={{ $json.workflow.id }}",
+            "Status": "Failed"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Date of Birth",
+              "displayName": "Date of Birth",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Gender",
+              "displayName": "Gender",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Male",
+                  "value": "Male"
+                },
+                {
+                  "name": "Female",
+                  "value": "Female"
+                },
+                {
+                  "name": "Prefer not to say",
+                  "value": "Prefer not to say"
+                }
+              ],
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Location",
+              "displayName": "Location",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Job Tenure",
+              "displayName": "Job Tenure",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Past Experience",
+              "displayName": "Past Experience",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Cross-border Finance Experience",
+              "displayName": "Cross-border Finance Experience",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Yes",
+                  "value": "Yes"
+                },
+                {
+                  "name": "No",
+                  "value": "No"
+                },
+                {
+                  "name": "80000",
+                  "value": "80000"
+                }
+              ],
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Tools Used",
+              "displayName": "Tools Used",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "AI Usage Example",
+              "displayName": "AI Usage Example",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Q1 Answer",
+              "displayName": "Q1 Answer",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Q2 Answer",
+              "displayName": "Q2 Answer",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Currently Employed",
+              "displayName": "Currently Employed",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Yes",
+                  "value": "Yes"
+                },
+                {
+                  "name": "No",
+                  "value": "No"
+                }
+              ],
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Expected Pay",
+              "displayName": "Expected Pay",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Hours Per Week",
+              "displayName": "Hours Per Week",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Additional Comments",
+              "displayName": "Additional Comments",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Process Thinking Score",
+              "displayName": "Process Thinking Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Practical Automation Score",
+              "displayName": "Practical Automation Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Clarity Communication Score",
+              "displayName": "Clarity Communication Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Execution Logic Score",
+              "displayName": "Execution Logic Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Reliability Awareness Score",
+              "displayName": "Reliability Awareness Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Process Thinking Rationale",
+              "displayName": "Process Thinking Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Practical Automation Rationale",
+              "displayName": "Practical Automation Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Clarity Communication Rationale",
+              "displayName": "Clarity Communication Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Execution Logic Rationale",
+              "displayName": "Execution Logic Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Reliability Awareness Rationale",
+              "displayName": "Reliability Awareness Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Outcome",
+              "displayName": "Outcome",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Advance",
+                  "value": "Advance"
+                },
+                {
+                  "name": "Review",
+                  "value": "Review"
+                },
+                {
+                  "name": "Reject",
+                  "value": "Reject"
+                }
+              ],
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Drafted Email Subject",
+              "displayName": "Drafted Email Subject",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Drafted Email Body",
+              "displayName": "Drafted Email Body",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Pending Scoring",
+                  "value": "Pending Scoring"
+                },
+                {
+                  "name": "Pending Review",
+                  "value": "Pending Review"
+                },
+                {
+                  "name": "Sent",
+                  "value": "Sent"
+                },
+                {
+                  "name": "Failed",
+                  "value": "Failed"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Sent At",
+              "displayName": "Sent At",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Last Error",
+              "displayName": "Last Error",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Send Triggered",
+              "displayName": "Send Triggered",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Total Score",
+              "displayName": "Total Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Submitted At",
+              "displayName": "Submitted At",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "b1502085-07a1-46fc-a7b6-9e36fb52a22a",
+      "name": "Mark Failed",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        -992,
+        864
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "17MJoDY1ygovdzr0",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "authentication": "airtableTokenApi",
+        "baseId": {
+          "__rl": true,
+          "value": "appfEyum1McBkiaOf",
+          "mode": "id"
+        },
+        "tableId": {
+          "__rl": true,
+          "value": "tblOnFXpA2eSkEHBT",
+          "mode": "id"
+        },
+        "triggerField": "Submitted At",
+        "additionalFields": {
+          "fields": ""
+        }
+      },
+      "type": "n8n-nodes-base.airtableTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1168,
+        352
+      ],
+      "id": "385ebdec-cd69-428b-acfb-388ecdd4403e",
+      "name": "Residentas Airtable",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "17MJoDY1ygovdzr0",
+          "name": "Airtable Personal Access Token account"
         }
       }
     },
@@ -37,7 +1190,8 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "strict"
+            "typeValidation": "strict",
+            "version": 1
           },
           "conditions": [
             {
@@ -51,285 +1205,370 @@
             }
           ],
           "combinator": "and"
-        }
+        },
+        "options": {}
       },
-      "id": "wf1-0002",
-      "name": "Filter",
+      "id": "22b8d094-6a78-4032-8c31-69b6f755c6df",
+      "name": "Filter1",
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2,
-      "position": [450, 300]
+      "position": [
+        -928,
+        352
+      ]
     },
     {
       "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "const trigger = $('Airtable Trigger').first().json;\nconst f = trigger.fields;\n\nconst systemPrompt = [\n  \"You are an evaluator scoring candidate responses against a fixed rubric.\",\n  \"You MUST return only valid JSON matching the provided schema.\",\n  \"You MUST score conservatively. Reserve 5 only for exceptional answers.\",\n  \"Reserve 0 for non-answers. Most real answers fall in the 2-4 range.\",\n  \"Score each criterion independently. Do not let one weak area drag others.\",\n  \"\",\n  \"Rubric (0-5 each):\",\n  \"- process_thinking: clarity of problem framing and structure\",\n  \"- practical_automation: tools chosen, feasibility, hands-on signal\",\n  \"- clarity_communication: structured, clear, well-organized writing\",\n  \"- execution_logic: logical step-by-step thinking\",\n  \"- reliability_awareness: handling errors and edge cases\",\n  \"\",\n  \"For each criterion, write a 1-2 sentence rationale citing specific phrases from the candidate's answer.\",\n  \"\",\n  \"Output schema:\",\n  '{\"scores\":{\"process_thinking\":int,\"practical_automation\":int,\"clarity_communication\":int,\"execution_logic\":int,\"reliability_awareness\":int},\"rationales\":{\"process_thinking\":string,\"practical_automation\":string,\"clarity_communication\":string,\"execution_logic\":string,\"reliability_awareness\":string}}',\n  \"\",\n  \"Return only the JSON object. No prose before or after.\"\n].join(\"\\n\");\n\nconst userPrompt = [\n  \"Candidate name: \" + (f.Name || \"\"),\n  \"\",\n  \"Past experience:\",\n  f['Past Experience'] || \"\",\n  \"\",\n  \"Tools used:\",\n  f['Tools Used'] || \"\",\n  \"\",\n  \"AI usage example:\",\n  f['AI Usage Example'] || \"\",\n  \"\",\n  \"Q1 answer:\",\n  f['Q1 Answer'] || \"\",\n  \"\",\n  \"Q2 answer:\",\n  f['Q2 Answer'] || \"\"\n].join(\"\\n\");\n\nreturn [{\n  json: {\n    candidateId: trigger.id,\n    candidateName: f.Name,\n    payload: {\n      model: \"llama-3.3-70b-versatile\",\n      temperature: 0.2,\n      response_format: { type: \"json_object\" },\n      messages: [\n        { role: \"system\", content: systemPrompt },\n        { role: \"user\", content: userPrompt }\n      ]\n    }\n  }\n}];"
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
       },
-      "id": "wf1-0003",
-      "name": "Build Scoring Request",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [650, 300]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://api.groq.com/openai/v1/chat/completions",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ $json.payload }}",
-        "options": {
-          "retry": {
-            "enabled": true,
-            "maxTries": 3
-          }
-        }
-      },
-      "id": "wf1-0004",
-      "name": "Groq - Score",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [850, 300],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "REPLACE_WITH_GROQ_CREDENTIAL_ID",
-          "name": "Residentas Groq"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "const raw = $input.first().json.choices[0].message.content;\nlet parsed;\ntry {\n  parsed = JSON.parse(raw);\n} catch (e) {\n  throw new Error('Invalid JSON from Groq: ' + raw.slice(0, 500));\n}\n\nconst s = parsed.scores;\nconst r = parsed.rationales;\n\nif (!s || !r) {\n  throw new Error('Groq response missing scores or rationales: ' + raw.slice(0, 500));\n}\n\nconst total = (s.process_thinking || 0) + (s.practical_automation || 0) +\n              (s.clarity_communication || 0) + (s.execution_logic || 0) +\n              (s.reliability_awareness || 0);\n\nlet outcome;\nif (total >= 20) outcome = 'Advance';\nelse if (total >= 15) outcome = 'Review';\nelse outcome = 'Reject';\n\nconst prev = $('Build Scoring Request').first().json;\n\nreturn [{ json: {\n  candidateId: prev.candidateId,\n  candidateName: prev.candidateName,\n  scores: s,\n  rationales: r,\n  total,\n  outcome\n}}];"
-      },
-      "id": "wf1-0005",
-      "name": "Parse Scores",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1050, 300]
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "const ctx = $input.first().json;\nconst trigger = $('Airtable Trigger').first().json;\nconst f = trigger.fields;\n\nconst systemPrompt = [\n  \"You generate exactly ONE short sentence (10-25 words) to be inserted into a hiring email.\",\n  \"Follow the rules for the given outcome strictly.\",\n  \"\",\n  \"For Advance: Reference the strongest specific element of the candidate's answers. Be warm and specific.\",\n  \"For Review: Be neutral and brief. Acknowledge their effort. NEVER hint they are borderline.\",\n  \"For Reject: Be neutral, brief, and encouraging. NEVER give reasons for rejection. NEVER reference weaknesses.\",\n  \"\",\n  \"Return only the sentence. No quotes, no prose around it, no preamble.\"\n].join(\"\\n\");\n\nconst userPrompt = [\n  \"Outcome: \" + ctx.outcome,\n  \"Candidate name: \" + ctx.candidateName,\n  \"\",\n  \"Their past experience: \" + (f['Past Experience'] || \"\"),\n  \"Their AI usage example: \" + (f['AI Usage Example'] || \"\"),\n  \"Their Q1 answer: \" + (f['Q1 Answer'] || \"\"),\n  \"\",\n  \"Generate the one sentence now.\"\n].join(\"\\n\");\n\nreturn [{ json: {\n  ...ctx,\n  linePayload: {\n    model: \"llama-3.3-70b-versatile\",\n    temperature: 0.7,\n    max_tokens: 80,\n    messages: [\n      { role: \"system\", content: systemPrompt },\n      { role: \"user\", content: userPrompt }\n    ]\n  }\n}}];"
-      },
-      "id": "wf1-0006",
-      "name": "Build Line Request",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1250, 300]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://api.groq.com/openai/v1/chat/completions",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ $json.linePayload }}",
-        "options": {
-          "retry": {
-            "enabled": true,
-            "maxTries": 3
-          }
-        }
-      },
-      "id": "wf1-0007",
-      "name": "Groq - Personalized Line",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1450, 300],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "REPLACE_WITH_GROQ_CREDENTIAL_ID",
-          "name": "Residentas Groq"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "const line = $input.first().json.choices[0].message.content.trim();\nconst prev = $('Build Line Request').first().json;\n\nreturn [{ json: {\n  candidateId: prev.candidateId,\n  candidateName: prev.candidateName,\n  scores: prev.scores,\n  rationales: prev.rationales,\n  total: prev.total,\n  outcome: prev.outcome,\n  personalizedLine: line\n}}];"
-      },
-      "id": "wf1-0008",
-      "name": "Extract Line",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1650, 300]
-    },
-    {
-      "parameters": {
-        "operation": "search",
-        "base": {
-          "__rl": true,
-          "value": "REPLACE_WITH_YOUR_BASE_ID",
-          "mode": "id"
-        },
-        "table": {
-          "__rl": true,
-          "value": "Templates",
-          "mode": "name"
-        },
-        "filterByFormula": "=LOWER({Name}) = LOWER('{{ $('Extract Line').first().json.outcome }}')",
-        "options": {
-          "maxRecords": 1
-        }
-      },
-      "id": "wf1-0009",
-      "name": "Get Template",
-      "type": "n8n-nodes-base.airtable",
-      "typeVersion": 2,
-      "position": [1850, 300],
-      "credentials": {
-        "airtableTokenApi": {
-          "id": "REPLACE_WITH_AIRTABLE_CREDENTIAL_ID",
-          "name": "Residentas Airtable"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "const tpl = $input.first().json.fields;\nconst ctx = $('Extract Line').first().json;\n\nconst subject = tpl.Subject || '';\nconst body = (tpl.Body || '')\n  .split('{{name}}').join(ctx.candidateName)\n  .split('{{personalized_line}}').join(ctx.personalizedLine);\n\nreturn [{ json: {\n  ...ctx,\n  subject,\n  body\n}}];"
-      },
-      "id": "wf1-0010",
-      "name": "Render Email",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [2050, 300]
-    },
-    {
-      "parameters": {
-        "operation": "update",
-        "base": {
-          "__rl": true,
-          "value": "REPLACE_WITH_YOUR_BASE_ID",
-          "mode": "id"
-        },
-        "table": {
-          "__rl": true,
-          "value": "Candidates",
-          "mode": "name"
-        },
-        "columns": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "id": "={{ $json.candidateId }}",
-            "Process Thinking Score": "={{ $json.scores.process_thinking }}",
-            "Practical Automation Score": "={{ $json.scores.practical_automation }}",
-            "Clarity Communication Score": "={{ $json.scores.clarity_communication }}",
-            "Execution Logic Score": "={{ $json.scores.execution_logic }}",
-            "Reliability Awareness Score": "={{ $json.scores.reliability_awareness }}",
-            "Process Thinking Rationale": "={{ $json.rationales.process_thinking }}",
-            "Practical Automation Rationale": "={{ $json.rationales.practical_automation }}",
-            "Clarity Communication Rationale": "={{ $json.rationales.clarity_communication }}",
-            "Execution Logic Rationale": "={{ $json.rationales.execution_logic }}",
-            "Reliability Awareness Rationale": "={{ $json.rationales.reliability_awareness }}",
-            "Outcome": "={{ $json.outcome }}",
-            "Drafted Email Subject": "={{ $json.subject }}",
-            "Drafted Email Body": "={{ $json.body }}",
-            "Status": "Pending Review"
-          },
-          "matchingColumns": ["id"],
-          "schema": []
-        }
-      },
-      "id": "wf1-0011",
-      "name": "Write Scores and Email",
-      "type": "n8n-nodes-base.airtable",
-      "typeVersion": 2,
-      "position": [2250, 300],
-      "credentials": {
-        "airtableTokenApi": {
-          "id": "REPLACE_WITH_AIRTABLE_CREDENTIAL_ID",
-          "name": "Residentas Airtable"
-        }
-      }
-    },
-    {
-      "parameters": {},
-      "id": "wf1-0012",
-      "name": "WF1 Error Trigger",
-      "type": "n8n-nodes-base.errorTrigger",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
       "typeVersion": 1,
-      "position": [250, 520]
+      "position": [
+        -544,
+        544
+      ],
+      "id": "5c4765a3-3a51-46fd-900c-a5763da361af",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "7gopajqircSDMgKq",
+          "name": "Residentas Groq"
+        }
+      }
     },
     {
       "parameters": {
-        "operation": "update",
-        "base": {
-          "__rl": true,
-          "value": "REPLACE_WITH_YOUR_BASE_ID",
-          "mode": "id"
-        },
-        "table": {
-          "__rl": true,
-          "value": "Candidates",
-          "mode": "name"
-        },
-        "columns": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "id": "={{ $('Airtable Trigger').first().json.id }}",
-            "Status": "Failed",
-            "Last Error": "={{ $json.execution.error.message }}"
-          },
-          "matchingColumns": ["id"],
-          "schema": []
-        }
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
       },
-      "id": "wf1-0013",
-      "name": "Mark Failed",
-      "type": "n8n-nodes-base.airtable",
-      "typeVersion": 2,
-      "position": [450, 520],
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        304,
+        544
+      ],
+      "id": "f5925bac-0b9c-4648-99c1-a307aaacd30e",
+      "name": "Groq Chat Model1",
       "credentials": {
-        "airtableTokenApi": {
-          "id": "REPLACE_WITH_AIRTABLE_CREDENTIAL_ID",
-          "name": "Residentas Airtable"
+        "groqApi": {
+          "id": "7gopajqircSDMgKq",
+          "name": "Residentas Groq"
         }
       }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "={{ $json.payload.messages[0].content }}"
+            },
+            {
+              "type": "HumanMessagePromptTemplate",
+              "message": "={{ $json.payload.messages[1].content }}"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -512,
+        352
+      ],
+      "id": "2775fffa-c729-4a2c-b06c-6f472d0ac1c5",
+      "name": "Score Candidate"
+    },
+    {
+      "parameters": {
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        352,
+        352
+      ],
+      "id": "90e258bf-24a6-4d27-a0c2-85ff6eb733a7",
+      "name": "One-Liner Outcome"
+    },
+    {
+      "parameters": {
+        "content": "## AI-Powered Candidate Evaluation and Email Drafting\n**Objective**: Automates the initial screening of job candidates by scoring Airtable responses against a standardized rubric and drafting personalized follow-up emails.\n",
+        "height": 560,
+        "width": 3008,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1264,
+        176
+      ],
+      "typeVersion": 1,
+      "id": "c289380e-bff7-455a-a4ab-4a2d6393e8d9",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "height": 432,
+        "width": 480,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1264,
+        768
+      ],
+      "typeVersion": 1,
+      "id": "fe4df8b2-2215-4734-8ad1-b673afd6083c",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### Trigger\nThis triggers whenever a new row has been submitted via the Airtable form.",
+        "width": 160
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1200,
+        512
+      ],
+      "typeVersion": 1,
+      "id": "26ee488a-9def-4559-b67b-5cd32a97cc8b",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "### Filter and Build Scoring Request\nThis sanitizes the data in order for the LLM model (Groq Chat) to output the data structure we need. In this case - JSON.",
+        "width": 272
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -896,
+        512
+      ],
+      "typeVersion": 1,
+      "id": "756df1b3-e915-4e48-b406-ac66c4c93468",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "### Check AI Output and Build Personalized One-liner\nThis checks whether the data is malformed or if model gave AI hallucinations and lists the error. \n\nIf data checks out and it is in the format we want, we create a prompt to give a personalized one-liner we attach to the email based on candidate scores.",
+        "width": 416
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -176,
+        512
+      ],
+      "typeVersion": 1,
+      "id": "497edeb7-7f69-4d03-834f-1c7077ab7a4f",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "### Personalization and Rendering\nIn these three nodes, we extract the AI output, get the Email template from Airtable depending on candidate outcome, replace placeholders with candidate's data.",
+        "width": 624
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        736,
+        512
+      ],
+      "typeVersion": 1,
+      "id": "fc754a6d-22df-4b3f-8cea-303f6ae58efd",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "content": "### Data Persistence\nWe save the scores, and save the final email. Waiting for a human to trigger sending of email leading us to our Workflow 2.",
+        "width": 256
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1392,
+        512
+      ],
+      "typeVersion": 1,
+      "id": "c562f021-18f8-45d5-8628-7f68b3e9f8dd",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "content": "### Error Handling and Reliability\nIf any of our nodes fail above, this triggers.. This outputs where the error is.\nGeneral, but in our use case, the llama 3.3-70b model is reliable enough with good prompt and proper guardrails.",
+        "width": 416
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1232,
+        1024
+      ],
+      "typeVersion": 1,
+      "id": "279496f8-32f3-4361-8d4a-ba9812a76831",
+      "name": "Sticky Note7"
     }
   ],
+  "pinData": {},
   "connections": {
-    "Airtable Trigger": {
-      "main": [[{"node": "Filter", "type": "main", "index": 0}]]
-    },
-    "Filter": {
-      "main": [[{"node": "Build Scoring Request", "type": "main", "index": 0}]]
-    },
     "Build Scoring Request": {
-      "main": [[{"node": "Groq - Score", "type": "main", "index": 0}]]
-    },
-    "Groq - Score": {
-      "main": [[{"node": "Parse Scores", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Score Candidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Parse Scores": {
-      "main": [[{"node": "Build Line Request", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Build Line Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Build Line Request": {
-      "main": [[{"node": "Groq - Personalized Line", "type": "main", "index": 0}]]
-    },
-    "Groq - Personalized Line": {
-      "main": [[{"node": "Extract Line", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "One-Liner Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Extract Line": {
-      "main": [[{"node": "Get Template", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Get Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Get Template": {
-      "main": [[{"node": "Render Email", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Render Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Render Email": {
-      "main": [[{"node": "Write Scores and Email", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Write Scores and Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "WF1 Error Trigger": {
-      "main": [[{"node": "Mark Failed", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Mark Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Residentas Airtable": {
+      "main": [
+        [
+          {
+            "node": "Filter1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter1": {
+      "main": [
+        [
+          {
+            "node": "Build Scoring Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Score Candidate",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "One-Liner Outcome",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score Candidate": {
+      "main": [
+        [
+          {
+            "node": "Parse Scores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One-Liner Outcome": {
+      "main": [
+        [
+          {
+            "node": "Extract Line",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
-  }
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "80efdfc7-3c13-4952-b00c-394f71670783",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fa40ce9ec1e6a0361f9e830f82897d23fc2bbc52f076360e55c9448c826a34e9"
+  },
+  "id": "wu2nCpkp82QBmMML",
+  "tags": []
 }

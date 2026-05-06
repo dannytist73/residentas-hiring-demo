@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { listCandidates, getCandidate, createCandidate, updateCandidateDraft, triggerSend } from "@/lib/airtable";
+import {
+  listCandidates,
+  getCandidate,
+  createCandidate,
+  updateCandidateDraft,
+  markReadyToSend,
+} from "@/lib/airtable";
 
 const fetchMock = vi.fn();
 
@@ -23,7 +29,6 @@ function airtableRow(overrides: Record<string, unknown> = {}) {
       "Name": "Maria",
       "Email": "maria@example.com",
       "Status": "Pending Review",
-      "Send Triggered": false,
       "Q1 Answer": "",
       "Q2 Answer": "",
       "Past Experience": "",
@@ -43,6 +48,8 @@ describe("listCandidates", () => {
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe("recABC");
     expect(result[0].name).toBe("Maria");
+    expect(result[0].jobTitle).toBe("");
+    expect(result[0].jobDescription).toBe("");
   });
 
   it("throws on Airtable error response", async () => {
@@ -94,6 +101,8 @@ describe("createCandidate", () => {
     expect(init?.method).toBe("POST");
     const body = JSON.parse((init?.body as string) ?? "{}");
     expect(body.fields.Name).toBe("John");
+    expect(body.fields["Job Title"]).toBeUndefined();
+    expect(body.fields["Job Description"]).toBeUndefined();
     expect(body.fields.Status).toBe("Pending Scoring");
   });
 });
@@ -110,12 +119,12 @@ describe("updateCandidateDraft", () => {
   });
 });
 
-describe("triggerSend", () => {
-  it("PATCHes Send Triggered=true", async () => {
+describe("markReadyToSend", () => {
+  it("PATCHes Status=Ready to Send", async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ id: "recABC" }), { status: 200 }));
-    await triggerSend("recABC");
+    await markReadyToSend("recABC");
     const [, init] = fetchMock.mock.calls[0];
     const body = JSON.parse((init?.body as string) ?? "{}");
-    expect(body.fields["Send Triggered"]).toBe(true);
+    expect(body.fields["Status"]).toBe("Ready to Send");
   });
 });

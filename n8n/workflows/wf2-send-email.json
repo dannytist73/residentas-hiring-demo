@@ -3,204 +3,1221 @@
   "nodes": [
     {
       "parameters": {
-        "httpMethod": "POST",
-        "path": "send-email",
-        "authentication": "headerAuth",
-        "responseMode": "onReceived",
-        "options": {}
-      },
-      "id": "a1b2c3d4-0001-0001-0001-000000000001",
-      "name": "Receive Send Trigger",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "position": [250, 300],
-      "webhookId": "residentas-send-email",
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "REPLACE_WITH_WEBHOOK_AUTH_CREDENTIAL_ID",
-          "name": "Residentas Webhook Auth"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "get",
-        "base": {
-          "__rl": true,
-          "value": "REPLACE_WITH_YOUR_BASE_ID",
-          "mode": "id"
-        },
-        "table": {
-          "__rl": true,
-          "value": "Candidates",
-          "mode": "name"
-        },
-        "id": "={{ $json.body.recordId }}"
-      },
-      "id": "a1b2c3d4-0001-0001-0001-000000000002",
-      "name": "Get Candidate Row",
-      "type": "n8n-nodes-base.airtable",
-      "typeVersion": 2,
-      "position": [450, 300],
-      "credentials": {
-        "airtableTokenApi": {
-          "id": "REPLACE_WITH_AIRTABLE_CREDENTIAL_ID",
-          "name": "Residentas Airtable"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "already-sent-check",
-              "leftValue": "={{ $json.fields.Status }}",
-              "rightValue": "Sent",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              }
-            }
-          ],
-          "combinator": "and"
-        }
-      },
-      "id": "a1b2c3d4-0001-0001-0001-000000000003",
-      "name": "Already Sent?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [650, 300]
-    },
-    {
-      "parameters": {
-        "fromEmail": "REPLACE_WITH_YOUR_GMAIL_ADDRESS",
-        "toEmail": "={{ $('Get Candidate Row').first().json.fields.Email }}",
-        "subject": "={{ $('Get Candidate Row').first().json.fields['Drafted Email Subject'] }}",
-        "emailFormat": "text",
-        "text": "={{ $('Get Candidate Row').first().json.fields['Drafted Email Body'] }}"
-      },
-      "id": "a1b2c3d4-0001-0001-0001-000000000004",
-      "name": "Send Email",
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 2.1,
-      "position": [850, 420],
-      "credentials": {
-        "smtp": {
-          "id": "REPLACE_WITH_GMAIL_CREDENTIAL_ID",
-          "name": "Residentas Gmail"
-        }
-      }
-    },
-    {
-      "parameters": {
         "operation": "update",
         "base": {
           "__rl": true,
-          "value": "REPLACE_WITH_YOUR_BASE_ID",
+          "value": "appfEyum1McBkiaOf",
           "mode": "id"
         },
         "table": {
           "__rl": true,
-          "value": "Candidates",
-          "mode": "name"
+          "value": "tblOnFXpA2eSkEHBT",
+          "mode": "list",
+          "cachedResultName": "Candidates",
+          "cachedResultUrl": "https://airtable.com/appfEyum1McBkiaOf/tblOnFXpA2eSkEHBT"
         },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "id": "={{ $('Get Candidate Row').first().json.id }}",
+            "id": "={{ $('Already Sent?').item.json.id }}",
             "Status": "Sent",
-            "Sent At": "={{ $now.toISO() }}",
-            "Send Triggered": false
+            "Sent At": "={{ $now }}"
           },
-          "matchingColumns": ["id"],
-          "schema": []
-        }
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Date of Birth",
+              "displayName": "Date of Birth",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Gender",
+              "displayName": "Gender",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Male",
+                  "value": "Male"
+                },
+                {
+                  "name": "Female",
+                  "value": "Female"
+                },
+                {
+                  "name": "Prefer not to say",
+                  "value": "Prefer not to say"
+                }
+              ],
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Location",
+              "displayName": "Location",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Job Tenure",
+              "displayName": "Job Tenure",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Past Experience",
+              "displayName": "Past Experience",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Cross-border Finance Experience",
+              "displayName": "Cross-border Finance Experience",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Yes",
+                  "value": "Yes"
+                },
+                {
+                  "name": "No",
+                  "value": "No"
+                },
+                {
+                  "name": "80000",
+                  "value": "80000"
+                }
+              ],
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Tools Used",
+              "displayName": "Tools Used",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "AI Usage Example",
+              "displayName": "AI Usage Example",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Q1 Answer",
+              "displayName": "Q1 Answer",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Q2 Answer",
+              "displayName": "Q2 Answer",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Currently Employed",
+              "displayName": "Currently Employed",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Yes",
+                  "value": "Yes"
+                },
+                {
+                  "name": "No",
+                  "value": "No"
+                }
+              ],
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Expected Pay",
+              "displayName": "Expected Pay",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Hours Per Week",
+              "displayName": "Hours Per Week",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Additional Comments",
+              "displayName": "Additional Comments",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Process Thinking Score",
+              "displayName": "Process Thinking Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Practical Automation Score",
+              "displayName": "Practical Automation Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Clarity Communication Score",
+              "displayName": "Clarity Communication Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Execution Logic Score",
+              "displayName": "Execution Logic Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Reliability Awareness Score",
+              "displayName": "Reliability Awareness Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Process Thinking Rationale",
+              "displayName": "Process Thinking Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Practical Automation Rationale",
+              "displayName": "Practical Automation Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Clarity Communication Rationale",
+              "displayName": "Clarity Communication Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Execution Logic Rationale",
+              "displayName": "Execution Logic Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Reliability Awareness Rationale",
+              "displayName": "Reliability Awareness Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Outcome",
+              "displayName": "Outcome",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Advance",
+                  "value": "Advance"
+                },
+                {
+                  "name": "Review",
+                  "value": "Review"
+                },
+                {
+                  "name": "Reject",
+                  "value": "Reject"
+                }
+              ],
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Drafted Email Subject",
+              "displayName": "Drafted Email Subject",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Drafted Email Body",
+              "displayName": "Drafted Email Body",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Pending Scoring",
+                  "value": "Pending Scoring"
+                },
+                {
+                  "name": "Pending Review",
+                  "value": "Pending Review"
+                },
+                {
+                  "name": "Sent",
+                  "value": "Sent"
+                },
+                {
+                  "name": "Failed",
+                  "value": "Failed"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Sent At",
+              "displayName": "Sent At",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Last Error",
+              "displayName": "Last Error",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Send Triggered",
+              "displayName": "Send Triggered",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Total Score",
+              "displayName": "Total Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Submitted At",
+              "displayName": "Submitted At",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
       },
-      "id": "a1b2c3d4-0001-0001-0001-000000000005",
+      "id": "69129534-3c3e-495c-a7b4-5930d7c52a78",
       "name": "Mark Sent",
       "type": "n8n-nodes-base.airtable",
       "typeVersion": 2,
-      "position": [1050, 420],
+      "position": [
+        448,
+        16
+      ],
       "credentials": {
         "airtableTokenApi": {
-          "id": "REPLACE_WITH_AIRTABLE_CREDENTIAL_ID",
-          "name": "Residentas Airtable"
+          "id": "17MJoDY1ygovdzr0",
+          "name": "Airtable Personal Access Token account"
         }
       }
     },
     {
       "parameters": {},
-      "id": "a1b2c3d4-0001-0001-0001-000000000006",
+      "id": "6b064311-ef34-4a15-9357-a362f9a5800b",
       "name": "WF2 Error Trigger",
       "type": "n8n-nodes-base.errorTrigger",
       "typeVersion": 1,
-      "position": [250, 520]
+      "position": [
+        -192,
+        464
+      ]
     },
     {
       "parameters": {
         "operation": "update",
         "base": {
           "__rl": true,
-          "value": "REPLACE_WITH_YOUR_BASE_ID",
+          "value": "appfEyum1McBkiaOf",
           "mode": "id"
         },
         "table": {
           "__rl": true,
-          "value": "Candidates",
-          "mode": "name"
+          "value": "tblOnFXpA2eSkEHBT",
+          "mode": "list",
+          "cachedResultName": "Candidates",
+          "cachedResultUrl": "https://airtable.com/appfEyum1McBkiaOf/tblOnFXpA2eSkEHBT"
         },
         "columns": {
-          "mappingMode": "defineBelow",
+          "mappingMode": "autoMapInputData",
           "value": {
-            "id": "={{ $('Get Candidate Row').first().json.id }}",
-            "Status": "Failed",
-            "Last Error": "={{ $json.execution.error.message }}"
+            "Send Triggered": false
           },
-          "matchingColumns": ["id"],
-          "schema": []
-        }
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Date of Birth",
+              "displayName": "Date of Birth",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Gender",
+              "displayName": "Gender",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Male",
+                  "value": "Male"
+                },
+                {
+                  "name": "Female",
+                  "value": "Female"
+                },
+                {
+                  "name": "Prefer not to say",
+                  "value": "Prefer not to say"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Location",
+              "displayName": "Location",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Job Tenure",
+              "displayName": "Job Tenure",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Past Experience",
+              "displayName": "Past Experience",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Cross-border Finance Experience",
+              "displayName": "Cross-border Finance Experience",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Yes",
+                  "value": "Yes"
+                },
+                {
+                  "name": "No",
+                  "value": "No"
+                },
+                {
+                  "name": "80000",
+                  "value": "80000"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Tools Used",
+              "displayName": "Tools Used",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "AI Usage Example",
+              "displayName": "AI Usage Example",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q1 Answer",
+              "displayName": "Q1 Answer",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q2 Answer",
+              "displayName": "Q2 Answer",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Currently Employed",
+              "displayName": "Currently Employed",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Yes",
+                  "value": "Yes"
+                },
+                {
+                  "name": "No",
+                  "value": "No"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Expected Pay",
+              "displayName": "Expected Pay",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Hours Per Week",
+              "displayName": "Hours Per Week",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Additional Comments",
+              "displayName": "Additional Comments",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Process Thinking Score",
+              "displayName": "Process Thinking Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Practical Automation Score",
+              "displayName": "Practical Automation Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Clarity Communication Score",
+              "displayName": "Clarity Communication Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Execution Logic Score",
+              "displayName": "Execution Logic Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Reliability Awareness Score",
+              "displayName": "Reliability Awareness Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Process Thinking Rationale",
+              "displayName": "Process Thinking Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Practical Automation Rationale",
+              "displayName": "Practical Automation Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Clarity Communication Rationale",
+              "displayName": "Clarity Communication Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Execution Logic Rationale",
+              "displayName": "Execution Logic Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Reliability Awareness Rationale",
+              "displayName": "Reliability Awareness Rationale",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Outcome",
+              "displayName": "Outcome",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Advance",
+                  "value": "Advance"
+                },
+                {
+                  "name": "Review",
+                  "value": "Review"
+                },
+                {
+                  "name": "Reject",
+                  "value": "Reject"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Drafted Email Subject",
+              "displayName": "Drafted Email Subject",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Drafted Email Body",
+              "displayName": "Drafted Email Body",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Pending Scoring",
+                  "value": "Pending Scoring"
+                },
+                {
+                  "name": "Pending Review",
+                  "value": "Pending Review"
+                },
+                {
+                  "name": "Sent",
+                  "value": "Sent"
+                },
+                {
+                  "name": "Failed",
+                  "value": "Failed"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Sent At",
+              "displayName": "Sent At",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Last Error",
+              "displayName": "Last Error",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Send Triggered",
+              "displayName": "Send Triggered",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Total Score",
+              "displayName": "Total Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Submitted At",
+              "displayName": "Submitted At",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
       },
-      "id": "a1b2c3d4-0001-0001-0001-000000000007",
+      "id": "8c0e232e-440d-43da-8705-4dd111b60b44",
       "name": "Mark Failed",
       "type": "n8n-nodes-base.airtable",
       "typeVersion": 2,
-      "position": [450, 520],
+      "position": [
+        16,
+        464
+      ],
       "credentials": {
         "airtableTokenApi": {
-          "id": "REPLACE_WITH_AIRTABLE_CREDENTIAL_ID",
-          "name": "Residentas Airtable"
+          "id": "17MJoDY1ygovdzr0",
+          "name": "Airtable Personal Access Token account"
         }
       }
+    },
+    {
+      "parameters": {
+        "content": "## WF2 - Sending of Email\n**Objective**: Automates the sending of email to job candidates through Human-in-the-Loop process. Minimal work, one click.",
+        "height": 464,
+        "width": 928,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -256,
+        -144
+      ],
+      "typeVersion": 1,
+      "id": "e8be11b3-080e-43c7-9f69-97da670d7f20",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## WF2 - Error in sending mail\nIf we encountered an error in sending mail, we log it for debug purposes.",
+        "height": 320,
+        "width": 608,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -256,
+        352
+      ],
+      "typeVersion": 1,
+      "id": "53669336-48c7-4f4a-9a0f-27624a10831e",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -192,
+        16
+      ],
+      "id": "55e48d35-2ed7-4bd4-8fc1-39d22e07f34e",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appfEyum1McBkiaOf",
+          "mode": "list",
+          "cachedResultName": "Residentas Base",
+          "cachedResultUrl": "https://airtable.com/appfEyum1McBkiaOf"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblOnFXpA2eSkEHBT",
+          "mode": "list",
+          "cachedResultName": "Candidates",
+          "cachedResultUrl": "https://airtable.com/appfEyum1McBkiaOf/tblOnFXpA2eSkEHBT"
+        },
+        "filterByFormula": "{status} = \"Ready to Send\"",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -16,
+        16
+      ],
+      "id": "9973db34-3965-426d-861d-5b85ecf36822",
+      "name": "Search records",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "17MJoDY1ygovdzr0",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.Email }}",
+        "subject": "={{ $json[\"Drafted Email Subject\"] }}",
+        "emailType": "text",
+        "message": "={{ $json[\"Drafted Email Body\"] }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        224,
+        16
+      ],
+      "id": "3881c0c4-c326-43e3-886c-258d1fa61e71",
+      "name": "Send a message",
+      "webhookId": "fb3d7418-fcf4-4c23-a42f-c23a87c97f67",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "oBVYyNbyJ9gWS62p",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "This is a scheduled trigger which searches for records with Status = \"Ready to Send\" and automates sending to email. After which, row status is updated to \"Sent\". ",
+        "height": 96,
+        "width": 848
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -224,
+        176
+      ],
+      "typeVersion": 1,
+      "id": "ccdc62e2-0f78-45af-af9e-7a5a3f6184a0",
+      "name": "Sticky Note2"
     }
   ],
+  "pinData": {},
   "connections": {
-    "Receive Send Trigger": {
-      "main": [[{"node": "Get Candidate Row", "type": "main", "index": 0}]]
-    },
-    "Get Candidate Row": {
-      "main": [[{"node": "Already Sent?", "type": "main", "index": 0}]]
-    },
-    "Already Sent?": {
+    "WF2 Error Trigger": {
       "main": [
-        [],
-        [{"node": "Send Email", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Mark Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Send Email": {
-      "main": [[{"node": "Mark Sent", "type": "main", "index": 0}]]
+    "Search records": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "WF2 Error Trigger": {
-      "main": [[{"node": "Mark Failed", "type": "main", "index": 0}]]
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Search records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Mark Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
-  }
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "340a9440-1576-4445-a7ff-40dece63004e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fa40ce9ec1e6a0361f9e830f82897d23fc2bbc52f076360e55c9448c826a34e9"
+  },
+  "id": "6iMKc92pXgOVOSkP",
+  "tags": []
 }

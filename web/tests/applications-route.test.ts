@@ -5,7 +5,7 @@ vi.mock("@/lib/airtable", () => ({
   listCandidates: vi.fn(),
   getCandidate: vi.fn(),
   updateCandidateDraft: vi.fn(),
-  triggerSend: vi.fn(),
+  markReadyToSend: vi.fn(),
 }));
 
 import { POST } from "@/app/api/applications/route";

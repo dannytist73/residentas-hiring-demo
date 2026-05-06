@@ -33,6 +33,8 @@ function rowToRecord(row: AirtableRow): CandidateRecord {
     name: (f["Name"] as string) ?? "",
     email: (f["Email"] as string) ?? "",
     submittedAt: (f["Submitted At"] as string) ?? row.createdTime,
+    jobTitle: (f["Job Title"] as string) ?? "",
+    jobDescription: (f["Job Description"] as string) ?? "",
     pastExperience: (f["Past Experience"] as string) ?? "",
     toolsUsed: (f["Tools Used"] as string) ?? "",
     q1Answer: (f["Q1 Answer"] as string) ?? "",
@@ -52,7 +54,6 @@ function rowToRecord(row: AirtableRow): CandidateRecord {
     draftedEmailSubject: f["Drafted Email Subject"] as string | undefined,
     draftedEmailBody: f["Drafted Email Body"] as string | undefined,
     status: ((f["Status"] as string) ?? "Pending Scoring") as Status,
-    sendTriggered: Boolean(f["Send Triggered"]),
     sentAt: (f["Sent At"] as string | null | undefined) ?? null,
     lastError: (f["Last Error"] as string | null | undefined) ?? null,
   };
@@ -101,11 +102,10 @@ export async function createCandidate(data: ApplicationFormInput): Promise<strin
     "Q1 Answer": data.q1Answer,
     "Q2 Answer": data.q2Answer,
     "Currently Employed": data.currentlyEmployed,
-    "Expected Pay": data.expectedPay,
-    "Hours Per Week": data.hoursPerWeek,
+    "Expected Pay": Math.round(data.expectedPay),
+    "Hours Per Week": Math.round(data.hoursPerWeek),
     "Additional Comments": data.additionalComments,
     "Status": "Pending Scoring",
-    "Send Triggered": false,
   };
   const json = await airtable<{ id: string }>(tableUrl(), {
     method: "POST",
@@ -128,9 +128,9 @@ export async function updateCandidateDraft(
   });
 }
 
-export async function triggerSend(id: string): Promise<void> {
+export async function markReadyToSend(id: string): Promise<void> {
   await airtable(`${tableUrl()}/${id}`, {
     method: "PATCH",
-    body: JSON.stringify({ fields: { "Send Triggered": true } }),
+    body: JSON.stringify({ fields: { "Status": "Ready to Send" } }),
   });
 }

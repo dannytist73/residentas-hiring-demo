@@ -13,7 +13,10 @@ export default async function DetailPage({ params }: Params) {
   if (!candidate) notFound();
   return (
     <div className="space-y-4">
-      <Link href="/dashboard" className="text-xs tracking-wider uppercase text-muted hover:text-ink">
+      <Link
+        href="/dashboard"
+        className="text-xs tracking-wider uppercase text-muted hover:text-ink transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+      >
         ← All candidates
       </Link>
       <CandidateDetail initial={candidate} />

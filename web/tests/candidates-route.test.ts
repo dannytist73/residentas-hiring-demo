@@ -4,7 +4,7 @@ vi.mock("@/lib/airtable", () => ({
   listCandidates: vi.fn(),
   getCandidate: vi.fn(),
   updateCandidateDraft: vi.fn(),
-  triggerSend: vi.fn(),
+  markReadyToSend: vi.fn(),
 }));
 
 import { GET } from "@/app/api/candidates/route";
@@ -15,7 +15,7 @@ beforeEach(() => {
     {
       id: "rec1", name: "Maria", email: "m@e.com", submittedAt: "2026-05-06T10:00:00Z",
       pastExperience: "", toolsUsed: "", q1Answer: "", q2Answer: "",
-      status: "Pending Review", sendTriggered: false,
+      status: "Pending Review",
     },
   ]);
 });

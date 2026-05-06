@@ -24,7 +24,7 @@ export type ApplicationFormInput = z.infer<typeof ApplicationFormSchema>;
 export const Outcome = z.enum(["Advance", "Review", "Reject"]);
 export type Outcome = z.infer<typeof Outcome>;
 
-export const Status = z.enum(["Pending Scoring", "Pending Review", "Sent", "Failed"]);
+export const Status = z.enum(["Pending Scoring", "Pending Review", "Ready to Send", "Sent", "Failed"]);
 export type Status = z.infer<typeof Status>;
 
 export const CandidateRecordSchema = z.object({
@@ -32,6 +32,8 @@ export const CandidateRecordSchema = z.object({
   name: z.string(),
   email: z.string(),
   submittedAt: z.string(),
+  jobTitle: z.string().default(""),
+  jobDescription: z.string().default(""),
 
   pastExperience: z.string().default(""),
   toolsUsed: z.string().default(""),
@@ -56,7 +58,6 @@ export const CandidateRecordSchema = z.object({
   draftedEmailBody: z.string().optional(),
 
   status: Status,
-  sendTriggered: z.boolean(),
   sentAt: z.string().nullable().optional(),
   lastError: z.string().nullable().optional(),
 });

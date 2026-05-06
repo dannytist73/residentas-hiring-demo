@@ -1,6 +1,8 @@
 {
   "Name": "Maria Santos",
   "Email": "danny.ngipol+strong@gmail.com",
+  "Job Title": "Operations Associate",
+  "Job Description": "Support Residentas Lisbon and Orlando operations through workflow automation, quality control, and cross-team coordination. Key responsibilities include building reliable Airtable/n8n flows, maintaining SOPs, and improving candidate/guest operations with measurable outcomes.",
   "Location": "Manila, Philippines",
   "Past Experience": "5 years as Operations Lead at a SaaS company. Built end-to-end onboarding automations using Zapier, Make, and Airtable. Designed a candidate pipeline that reduced screening time from 3 days to 4 hours by chaining a typeform → AI summarizer → recruiter Slack channel. Documented every workflow with diagrams and a runbook covering retries, dead letters, and what to check when something breaks.",
   "Tools Used": "Airtable, n8n, Zapier, Make, Notion, Slack, Google Workspace, ClickUp, OpenAI API, Groq",

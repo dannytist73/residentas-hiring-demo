@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { CandidateRecord } from "@/lib/schema";
 import { OutcomeChip } from "./outcome-chip";
 import { ScoreBar } from "./score-bar";
+import { ROLE_DESCRIPTION, ROLE_TITLE } from "@/lib/job-description";
 
 const CRITERIA = [
   { key: "processThinking", rationaleKey: "processThinkingRationale", label: "Process Thinking" },
@@ -16,7 +17,7 @@ const CRITERIA = [
 const AUTOSAVE_MS = 1500;
 const POLL_MS = 30_000;
 
-async function patchCandidate(id: string, body: { subject?: string; body?: string; send?: true }) {
+async function patchCandidate(id: string, body: { subject?: string; body?: string; readyToSend?: true }) {
   const res = await fetch(`/api/candidates/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -70,26 +71,31 @@ export function CandidateDetail({ initial }: { initial: CandidateRecord }) {
     return () => clearTimeout(t);
   }, [body, record.id]);
 
-  async function onSend() {
+  async function onMarkReady() {
     setSending(true);
     try {
-      await patchCandidate(record.id, { subject, body, send: true });
-      setToast("Sending — will reflect on next refresh.");
+      await patchCandidate(record.id, { subject, body, readyToSend: true });
+      setRecord((prev) => ({ ...prev, status: "Ready to Send" }));
+      setToast("Marked as Ready to Send. n8n scheduler will send it shortly.");
     } catch {
-      setToast("Send failed. Please try again.");
+      setToast("Update failed. Please try again.");
     } finally {
       setSending(false);
     }
   }
 
-  const canSend = record.status === "Pending Review" && !sending;
+  const canMarkReady = record.status === "Pending Review" && !sending;
   const showLetter = record.status !== "Pending Scoring";
   const showSent = record.status === "Sent";
+  const showReady = record.status === "Ready to Send";
+  const lockEdits = showSent || showReady;
+  const roleTitle = record.jobTitle || ROLE_TITLE;
+  const roleDescription = record.jobDescription || ROLE_DESCRIPTION;
 
   return (
     <div className="grid lg:grid-cols-2 gap-6">
       {/* Left pane */}
-      <section className="bg-surface border border-hairline p-6 space-y-6">
+      <section className="bg-surface border border-hairline p-6 space-y-6 shadow-[0_14px_50px_rgba(0,0,0,0.28)]">
         <div>
           <div className="flex items-center gap-3">
             {record.outcome ? <OutcomeChip outcome={record.outcome} /> : null}
@@ -97,16 +103,24 @@ export function CandidateDetail({ initial }: { initial: CandidateRecord }) {
               <span className="label">{record.totalScore} / 25</span>
             ) : null}
           </div>
-          <h1 className="font-display text-3xl mt-2">{record.name}</h1>
-          <div className="text-sm text-muted">{record.email}</div>
+          <h1 className="font-display text-4xl mt-2 leading-tight">{record.name}</h1>
+          <div className="text-sm text-muted mt-1">{record.email}</div>
         </div>
 
         {record.status === "Failed" && record.lastError ? (
-          <div className="border border-reject-border p-3 text-sm">
+          <div className="border border-reject-border bg-reject-soft p-3 text-sm">
             <div className="label">Scoring failed</div>
             <div className="mt-1">{record.lastError}</div>
           </div>
         ) : null}
+
+        <div className="space-y-3">
+          <h2 className="label">Role context</h2>
+          <div className="border border-hairline bg-panel p-3">
+            <p className="font-display text-xl">{roleTitle}</p>
+            <p className="text-sm text-muted whitespace-pre-line mt-2 leading-relaxed">{roleDescription}</p>
+          </div>
+        </div>
 
         <div className="space-y-3">
           <h2 className="label">Original answers</h2>
@@ -139,7 +153,7 @@ export function CandidateDetail({ initial }: { initial: CandidateRecord }) {
       </section>
 
       {/* Right pane */}
-      <section className="bg-surface border border-hairline p-6 space-y-4">
+      <section className="bg-surface border border-hairline p-6 space-y-4 shadow-[0_14px_50px_rgba(0,0,0,0.28)]">
         {!showLetter ? (
           <div className="py-16 text-center">
             <div className="label">Pending</div>
@@ -162,9 +176,9 @@ export function CandidateDetail({ initial }: { initial: CandidateRecord }) {
             <label className="block">
               <span className="label">Subject</span>
               <input
-                className="mt-1 block w-full border border-hairline px-3 py-2 bg-bg disabled:opacity-60"
+                className="mt-1 block w-full border border-hairline px-3 py-2 bg-panel disabled:opacity-60 focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-focus"
                 value={subject}
-                disabled={showSent}
+                disabled={lockEdits}
                 onChange={(e) => {
                   dirty.current.subject = true;
                   setSubject(e.target.value);
@@ -176,9 +190,9 @@ export function CandidateDetail({ initial }: { initial: CandidateRecord }) {
               <span className="label">Body</span>
               <textarea
                 rows={16}
-                className="mt-1 block w-full border border-hairline px-3 py-2 bg-bg font-display text-base leading-relaxed disabled:opacity-60"
+                className="mt-1 block w-full border border-hairline px-3 py-2 bg-panel font-display text-base leading-relaxed disabled:opacity-60 focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-focus"
                 value={body}
-                disabled={showSent}
+                disabled={lockEdits}
                 onChange={(e) => {
                   dirty.current.body = true;
                   setBody(e.target.value);
@@ -186,14 +200,14 @@ export function CandidateDetail({ initial }: { initial: CandidateRecord }) {
               />
             </label>
 
-            {!showSent ? (
+            {!showSent && !showReady ? (
               <div className="flex justify-end pt-2">
                 <button
-                  onClick={onSend}
-                  disabled={!canSend}
-                  className="bg-ink text-white px-6 py-3 tracking-wider text-sm uppercase disabled:opacity-50"
+                  onClick={onMarkReady}
+                  disabled={!canMarkReady}
+                  className="bg-accent text-accent-ink px-6 py-3 tracking-wider text-sm uppercase font-medium transition hover:brightness-110 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                 >
-                  {sending ? "Sending…" : "Send email"}
+                  {sending ? "Updating…" : "Mark ready to send"}
                 </button>
               </div>
             ) : null}

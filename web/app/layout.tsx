@@ -10,7 +10,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${display.variable} ${sans.variable}`}>
-      <body className="bg-bg text-ink font-sans antialiased">{children}</body>
+      <body className="bg-bg text-ink font-sans antialiased selection:bg-accent selection:text-accent-ink">
+        {children}
+      </body>
     </html>
   );
 }

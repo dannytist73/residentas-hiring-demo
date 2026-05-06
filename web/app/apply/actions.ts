@@ -21,7 +21,8 @@ export async function submitApplication(_prev: ApplyResult | null, formData: For
   }
   try {
     await createCandidate(parsed.data);
-  } catch {
+  } catch (e) {
+    console.error("[apply] createCandidate failed:", e instanceof Error ? e.message : e);
     return { ok: false, fieldErrors: { _: "Something went wrong, please try again." } };
   }
   redirect("/apply/thank-you");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, startTransition } from "react";
 import { submitApplication, ApplyResult } from "@/app/apply/actions";
 
 const initial: ApplyResult | null = null;
@@ -22,7 +22,8 @@ function Field({
   required?: boolean;
   rows?: number;
 }) {
-  const cls = "mt-1 block w-full border border-hairline px-3 py-2 bg-bg focus:outline-none focus:border-ink";
+  const cls =
+    "mt-1 block w-full border border-hairline px-3 py-2.5 bg-panel text-ink focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-focus";
   return (
     <label className="block">
       <span className="label">{label}</span>
@@ -41,10 +42,16 @@ export function ApplicationForm() {
   const errors = state && !state.ok ? state.fieldErrors : {};
 
   return (
-    <form action={action} className="space-y-10">
+    <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          startTransition(() => action(new FormData(e.currentTarget)));
+        }}
+        className="space-y-10"
+      >
       {errors._ ? <div className="text-sm text-reject-border">{errors._}</div> : null}
 
-      <section className="space-y-4">
+      <section className="space-y-4 bg-surface border border-hairline p-6 md:p-7">
         <h2 className="label">About you</h2>
         <div className="grid md:grid-cols-2 gap-4">
           <Field label="Full name" name="name" errors={errors} />
@@ -55,7 +62,7 @@ export function ApplicationForm() {
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-4 bg-surface border border-hairline p-6 md:p-7">
         <h2 className="label">Experience</h2>
         <Field label="Job tenure" name="jobTenure" errors={errors} />
         <Field label="Past experience" name="pastExperience" textarea errors={errors} />
@@ -64,13 +71,13 @@ export function ApplicationForm() {
         <Field label="AI usage example" name="aiUsageExample" textarea errors={errors} rows={3} />
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-4 bg-surface border border-hairline p-6 md:p-7">
         <h2 className="label">Open questions</h2>
         <Field label="Q1. Describe a workflow you automated end-to-end" name="q1Answer" textarea errors={errors} rows={6} />
         <Field label="Q2. What tools did you use, and why?" name="q2Answer" textarea errors={errors} rows={6} />
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-4 bg-surface border border-hairline p-6 md:p-7">
         <h2 className="label">Logistics</h2>
         <div className="grid md:grid-cols-2 gap-4">
           <Field label="Currently employed" name="currentlyEmployed" errors={errors} />
@@ -84,7 +91,7 @@ export function ApplicationForm() {
         <button
           type="submit"
           disabled={pending}
-          className="bg-ink text-white px-8 py-3 tracking-wider text-sm uppercase disabled:opacity-50"
+          className="bg-accent text-accent-ink px-8 py-3 tracking-wider text-sm uppercase font-medium transition hover:brightness-110 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           {pending ? "Submitting…" : "Submit application"}
         </button>
