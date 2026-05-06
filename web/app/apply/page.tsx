@@ -1,5 +1,6 @@
 import { ApplicationForm } from "@/components/application-form";
 import { ROLE_DESCRIPTION, ROLE_TITLE } from "@/lib/job-description";
+import Link from "next/link";
 
 export default function ApplyPage() {
   return (
@@ -15,6 +16,14 @@ export default function ApplyPage() {
         <h2 className="label">Role brief</h2>
         <p className="text-sm text-muted whitespace-pre-line leading-relaxed">{ROLE_DESCRIPTION}</p>
       </section>
+      <div className="mb-10">
+        <Link
+          href="/apply/thank-you"
+          className="inline-flex items-center rounded border border-hairline px-4 py-2 text-xs text-muted transition-colors hover:border-accent hover:text-accent"
+        >
+          Preview AI interview concept
+        </Link>
+      </div>
       <ApplicationForm />
     </main>
   );

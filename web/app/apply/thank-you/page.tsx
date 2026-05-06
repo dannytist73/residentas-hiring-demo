@@ -1,8 +1,8 @@
 export default function ThankYouPage() {
   const scores = [
-    { label: "Autonomy", value: 8, pct: "80%" },
-    { label: "Tool fluency", value: 9, pct: "90%" },
-    { label: "Communication", value: 7, pct: "70%" },
+    { label: "Autonomy", value: 8 },
+    { label: "Tool fluency", value: 9 },
+    { label: "Communication", value: 7 },
   ];
 
   const stackItems = [
@@ -102,14 +102,14 @@ export default function ThankYouPage() {
               <div className="label mb-3">Output (hiring team sees)</div>
               <div className="text-xs text-muted mb-2">Score per dimension</div>
               <div className="bg-panel border border-hairline p-3 space-y-2 mb-3">
-                {scores.map(({ label, value, pct }) => (
+                {scores.map(({ label, value }) => (
                   <div key={label}>
                     <div className="flex justify-between mb-1">
                       <span className="text-xs text-muted">{label}</span>
                       <span className="text-xs text-accent">{value}/10</span>
                     </div>
                     <div className="h-0.5 bg-surface rounded">
-                      <div className="h-0.5 bg-accent rounded" style={{ width: pct }} />
+                      <div className="h-0.5 bg-accent rounded" style={{ width: `${value * 10}%` }} />
                     </div>
                   </div>
                 ))}
@@ -123,7 +123,13 @@ export default function ThankYouPage() {
           {/* Flow diagram */}
           <div className="border-t border-hairline bg-panel px-5 py-4">
             <div className="label mb-3">Flow</div>
-            <svg viewBox="0 0 640 56" className="w-full" xmlns="http://www.w3.org/2000/svg">
+            <svg
+              viewBox="0 0 640 56"
+              className="w-full"
+              role="img"
+              aria-label="AI interview pipeline flow: Shortlisted → ElevenLabs voices question → Candidate speaks → Claude scores → Airtable record updated"
+              xmlns="http://www.w3.org/2000/svg"
+            >
               <rect x="0" y="8" width="110" height="38" rx="2" fill="#1f2228" stroke="#343842" strokeWidth=".8" />
               <text x="55" y="24" fontSize="8" fill="#b6aea1" textAnchor="middle" fontFamily="monospace">Shortlisted</text>
               <text x="55" y="36" fontSize="7" fill="#666" textAnchor="middle" fontFamily="monospace">invite sent via email</text>
