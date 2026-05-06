@@ -205,4 +205,4 @@ Write-Host ""
 Write-Host "NEXT STEPS:" -ForegroundColor Yellow
 Write-Host "  1. Set Status field default: Candidates -> Status -> Edit field -> Default: 'Pending Scoring'"
 Write-Host "  2. Create a Form view on Candidates and hide all AI/score/status fields"
-Write-Host "  3. Save the Base ID above — you will need it in n8n"
+Write-Host "  3. Save the Base ID above - you will need it in n8n"
