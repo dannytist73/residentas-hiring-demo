@@ -18,3 +18,6 @@ desktop.ini
 # Build/temp
 node_modules/
 *.log
+
+# Superpowers brainstorm sessions
+.superpowers/
