@@ -75,9 +75,13 @@ export async function listCandidates(): Promise<CandidateRecord[]> {
 }
 
 export async function getCandidate(id: string): Promise<CandidateRecord | null> {
-  const res = await fetch(`${tableUrl()}/${id}`, { headers: authHeaders() });
+  const url = `${tableUrl()}/${id}`;
+  const res = await fetch(url, { headers: authHeaders() });
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`Airtable GET ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Airtable GET ${url} ${res.status}: ${body}`);
+  }
   const row = (await res.json()) as AirtableRow;
   return rowToRecord(row);
 }
