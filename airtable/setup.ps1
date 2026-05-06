@@ -83,14 +83,29 @@ Write-Host "  Candidates table: $candId" -ForegroundColor Green
 $candidateFields = @(
     @{ name = "Email";                           type = "email" }
     # Submitted At (createdTime) must be added manually in Airtable UI
+    @{ name = "Date of Birth";                   type = "date";
+       options = @{ dateFormat = @{ name = "local" } } }
+    @{ name = "Gender"; type = "singleSelect";
+       options = @{ choices = @(
+           @{ name = "Male" }
+           @{ name = "Female" }
+           @{ name = "Non-binary" }
+           @{ name = "Prefer not to say" }
+       )}}
     @{ name = "Location";                        type = "singleLineText" }
+    @{ name = "Job Tenure";                      type = "singleLineText" }
     @{ name = "Past Experience";                 type = "multilineText" }
+    @{ name = "Cross-border Finance Experience"; type = "singleSelect";
+       options = @{ choices = @(@{ name = "Yes" }, @{ name = "No" }) } }
     @{ name = "Tools Used";                      type = "multilineText" }
     @{ name = "AI Usage Example";                type = "multilineText" }
     @{ name = "Q1 Answer";                       type = "multilineText" }
     @{ name = "Q2 Answer";                       type = "multilineText" }
+    @{ name = "Currently Employed";              type = "singleSelect";
+       options = @{ choices = @(@{ name = "Yes" }, @{ name = "No" }) } }
     @{ name = "Expected Pay";                    type = "singleLineText" }
     @{ name = "Hours Per Week";                  type = "singleLineText" }
+    @{ name = "Additional Comments";             type = "multilineText" }
     @{ name = "Process Thinking Score";          type = "number"; options = @{ precision = 0 } }
     @{ name = "Practical Automation Score";      type = "number"; options = @{ precision = 0 } }
     @{ name = "Clarity Communication Score";     type = "number"; options = @{ precision = 0 } }
