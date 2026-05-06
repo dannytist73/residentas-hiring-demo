@@ -60,3 +60,40 @@ Submit each of the three sample candidates from `samples/`. Expected outcomes:
 ## Improvements for production
 
 See `docs/superpowers/specs/2026-05-06-residentas-mvp-design.md` → "Improvements for production" for the full list. The biggest gaps are: queue-backed form submissions, an AI follow-up interview for borderline candidates, calibration set + drift monitoring on the rubric, and a custom Next.js dashboard with edit-before-send (Phase 2).
+
+---
+
+## Web app (Next.js dashboard & form)
+
+The branded recruiter dashboard and public application form live in `web/`.
+
+### Local development
+
+```bash
+cd web
+cp .env.example .env.local   # then fill in the values
+npm install
+npm run dev                  # http://localhost:3000
+npm test                     # run unit tests
+```
+
+### Environment variables
+
+| Variable | Notes |
+|---|---|
+| `AIRTABLE_API_KEY` | Personal Access Token with read+write on the Candidates table |
+| `AIRTABLE_BASE_ID` | The same base used by WF1/WF2 |
+| `DASHBOARD_PASSCODE` | The single shared passcode for `/login` |
+| `AUTH_SECRET` | 64-char random hex; `openssl rand -hex 32` |
+| `NEXT_PUBLIC_BRAND_ROLE_TITLE` | Role title shown on `/apply` |
+
+### Deploy to Vercel
+
+```bash
+cd web
+npx vercel link              # link the directory to a Vercel project
+npx vercel env pull          # populate .env.local from Vercel
+npx vercel deploy --prod     # production deploy
+```
+
+The dashboard URL will be the Vercel project URL. Add the production domain (e.g. `hire.residentas.com`) in the Vercel project settings if desired.
