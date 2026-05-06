@@ -1,0 +1,335 @@
+{
+  "name": "WF1 - Score and Draft",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [{"mode": "everyMinute"}]
+        },
+        "base": {
+          "__rl": true,
+          "value": "REPLACE_WITH_YOUR_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Candidates",
+          "mode": "name"
+        },
+        "triggerField": "Submitted At",
+        "additionalFields": {}
+      },
+      "id": "wf1-0001",
+      "name": "Airtable Trigger",
+      "type": "n8n-nodes-base.airtableTrigger",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "REPLACE_WITH_AIRTABLE_CREDENTIAL_ID",
+          "name": "Residentas Airtable"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "status-check",
+              "leftValue": "={{ $json.fields.Status }}",
+              "rightValue": "Pending Scoring",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "wf1-0002",
+      "name": "Filter",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const trigger = $('Airtable Trigger').first().json;\nconst f = trigger.fields;\n\nconst systemPrompt = [\n  \"You are an evaluator scoring candidate responses against a fixed rubric.\",\n  \"You MUST return only valid JSON matching the provided schema.\",\n  \"You MUST score conservatively. Reserve 5 only for exceptional answers.\",\n  \"Reserve 0 for non-answers. Most real answers fall in the 2-4 range.\",\n  \"Score each criterion independently. Do not let one weak area drag others.\",\n  \"\",\n  \"Rubric (0-5 each):\",\n  \"- process_thinking: clarity of problem framing and structure\",\n  \"- practical_automation: tools chosen, feasibility, hands-on signal\",\n  \"- clarity_communication: structured, clear, well-organized writing\",\n  \"- execution_logic: logical step-by-step thinking\",\n  \"- reliability_awareness: handling errors and edge cases\",\n  \"\",\n  \"For each criterion, write a 1-2 sentence rationale citing specific phrases from the candidate's answer.\",\n  \"\",\n  \"Output schema:\",\n  '{\"scores\":{\"process_thinking\":int,\"practical_automation\":int,\"clarity_communication\":int,\"execution_logic\":int,\"reliability_awareness\":int},\"rationales\":{\"process_thinking\":string,\"practical_automation\":string,\"clarity_communication\":string,\"execution_logic\":string,\"reliability_awareness\":string}}',\n  \"\",\n  \"Return only the JSON object. No prose before or after.\"\n].join(\"\\n\");\n\nconst userPrompt = [\n  \"Candidate name: \" + (f.Name || \"\"),\n  \"\",\n  \"Past experience:\",\n  f['Past Experience'] || \"\",\n  \"\",\n  \"Tools used:\",\n  f['Tools Used'] || \"\",\n  \"\",\n  \"AI usage example:\",\n  f['AI Usage Example'] || \"\",\n  \"\",\n  \"Q1 answer:\",\n  f['Q1 Answer'] || \"\",\n  \"\",\n  \"Q2 answer:\",\n  f['Q2 Answer'] || \"\"\n].join(\"\\n\");\n\nreturn [{\n  json: {\n    candidateId: trigger.id,\n    candidateName: f.Name,\n    payload: {\n      model: \"llama-3.3-70b-versatile\",\n      temperature: 0.2,\n      response_format: { type: \"json_object\" },\n      messages: [\n        { role: \"system\", content: systemPrompt },\n        { role: \"user\", content: userPrompt }\n      ]\n    }\n  }\n}];"
+      },
+      "id": "wf1-0003",
+      "name": "Build Scoring Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.payload }}",
+        "options": {
+          "retry": {
+            "enabled": true,
+            "maxTries": 3
+          }
+        }
+      },
+      "id": "wf1-0004",
+      "name": "Groq - Score",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [850, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_GROQ_CREDENTIAL_ID",
+          "name": "Residentas Groq"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const raw = $input.first().json.choices[0].message.content;\nlet parsed;\ntry {\n  parsed = JSON.parse(raw);\n} catch (e) {\n  throw new Error('Invalid JSON from Groq: ' + raw.slice(0, 500));\n}\n\nconst s = parsed.scores;\nconst r = parsed.rationales;\n\nif (!s || !r) {\n  throw new Error('Groq response missing scores or rationales: ' + raw.slice(0, 500));\n}\n\nconst total = (s.process_thinking || 0) + (s.practical_automation || 0) +\n              (s.clarity_communication || 0) + (s.execution_logic || 0) +\n              (s.reliability_awareness || 0);\n\nlet outcome;\nif (total >= 20) outcome = 'Advance';\nelse if (total >= 15) outcome = 'Review';\nelse outcome = 'Reject';\n\nconst prev = $('Build Scoring Request').first().json;\n\nreturn [{ json: {\n  candidateId: prev.candidateId,\n  candidateName: prev.candidateName,\n  scores: s,\n  rationales: r,\n  total,\n  outcome\n}}];"
+      },
+      "id": "wf1-0005",
+      "name": "Parse Scores",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const ctx = $input.first().json;\nconst trigger = $('Airtable Trigger').first().json;\nconst f = trigger.fields;\n\nconst systemPrompt = [\n  \"You generate exactly ONE short sentence (10-25 words) to be inserted into a hiring email.\",\n  \"Follow the rules for the given outcome strictly.\",\n  \"\",\n  \"For Advance: Reference the strongest specific element of the candidate's answers. Be warm and specific.\",\n  \"For Review: Be neutral and brief. Acknowledge their effort. NEVER hint they are borderline.\",\n  \"For Reject: Be neutral, brief, and encouraging. NEVER give reasons for rejection. NEVER reference weaknesses.\",\n  \"\",\n  \"Return only the sentence. No quotes, no prose around it, no preamble.\"\n].join(\"\\n\");\n\nconst userPrompt = [\n  \"Outcome: \" + ctx.outcome,\n  \"Candidate name: \" + ctx.candidateName,\n  \"\",\n  \"Their past experience: \" + (f['Past Experience'] || \"\"),\n  \"Their AI usage example: \" + (f['AI Usage Example'] || \"\"),\n  \"Their Q1 answer: \" + (f['Q1 Answer'] || \"\"),\n  \"\",\n  \"Generate the one sentence now.\"\n].join(\"\\n\");\n\nreturn [{ json: {\n  ...ctx,\n  linePayload: {\n    model: \"llama-3.3-70b-versatile\",\n    temperature: 0.7,\n    max_tokens: 80,\n    messages: [\n      { role: \"system\", content: systemPrompt },\n      { role: \"user\", content: userPrompt }\n    ]\n  }\n}}];"
+      },
+      "id": "wf1-0006",
+      "name": "Build Line Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.linePayload }}",
+        "options": {
+          "retry": {
+            "enabled": true,
+            "maxTries": 3
+          }
+        }
+      },
+      "id": "wf1-0007",
+      "name": "Groq - Personalized Line",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1450, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_GROQ_CREDENTIAL_ID",
+          "name": "Residentas Groq"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const line = $input.first().json.choices[0].message.content.trim();\nconst prev = $('Build Line Request').first().json;\n\nreturn [{ json: {\n  candidateId: prev.candidateId,\n  candidateName: prev.candidateName,\n  scores: prev.scores,\n  rationales: prev.rationales,\n  total: prev.total,\n  outcome: prev.outcome,\n  personalizedLine: line\n}}];"
+      },
+      "id": "wf1-0008",
+      "name": "Extract Line",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1650, 300]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "REPLACE_WITH_YOUR_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Templates",
+          "mode": "name"
+        },
+        "filterByFormula": "=LOWER({Name}) = LOWER('{{ $('Extract Line').first().json.outcome }}')",
+        "options": {
+          "maxRecords": 1
+        }
+      },
+      "id": "wf1-0009",
+      "name": "Get Template",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1850, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "REPLACE_WITH_AIRTABLE_CREDENTIAL_ID",
+          "name": "Residentas Airtable"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const tpl = $input.first().json.fields;\nconst ctx = $('Extract Line').first().json;\n\nconst subject = tpl.Subject || '';\nconst body = (tpl.Body || '')\n  .split('{{name}}').join(ctx.candidateName)\n  .split('{{personalized_line}}').join(ctx.personalizedLine);\n\nreturn [{ json: {\n  ...ctx,\n  subject,\n  body\n}}];"
+      },
+      "id": "wf1-0010",
+      "name": "Render Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2050, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "REPLACE_WITH_YOUR_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Candidates",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.candidateId }}",
+            "Process Thinking Score": "={{ $json.scores.process_thinking }}",
+            "Practical Automation Score": "={{ $json.scores.practical_automation }}",
+            "Clarity Communication Score": "={{ $json.scores.clarity_communication }}",
+            "Execution Logic Score": "={{ $json.scores.execution_logic }}",
+            "Reliability Awareness Score": "={{ $json.scores.reliability_awareness }}",
+            "Process Thinking Rationale": "={{ $json.rationales.process_thinking }}",
+            "Practical Automation Rationale": "={{ $json.rationales.practical_automation }}",
+            "Clarity Communication Rationale": "={{ $json.rationales.clarity_communication }}",
+            "Execution Logic Rationale": "={{ $json.rationales.execution_logic }}",
+            "Reliability Awareness Rationale": "={{ $json.rationales.reliability_awareness }}",
+            "Outcome": "={{ $json.outcome }}",
+            "Drafted Email Subject": "={{ $json.subject }}",
+            "Drafted Email Body": "={{ $json.body }}",
+            "Status": "Pending Review"
+          },
+          "matchingColumns": ["id"],
+          "schema": []
+        }
+      },
+      "id": "wf1-0011",
+      "name": "Write Scores and Email",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [2250, 300],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "REPLACE_WITH_AIRTABLE_CREDENTIAL_ID",
+          "name": "Residentas Airtable"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "wf1-0012",
+      "name": "WF1 Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [250, 520]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "REPLACE_WITH_YOUR_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Candidates",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Airtable Trigger').first().json.id }}",
+            "Status": "Failed",
+            "Last Error": "={{ $json.execution.error.message }}"
+          },
+          "matchingColumns": ["id"],
+          "schema": []
+        }
+      },
+      "id": "wf1-0013",
+      "name": "Mark Failed",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [450, 520],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "REPLACE_WITH_AIRTABLE_CREDENTIAL_ID",
+          "name": "Residentas Airtable"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Airtable Trigger": {
+      "main": [[{"node": "Filter", "type": "main", "index": 0}]]
+    },
+    "Filter": {
+      "main": [[{"node": "Build Scoring Request", "type": "main", "index": 0}]]
+    },
+    "Build Scoring Request": {
+      "main": [[{"node": "Groq - Score", "type": "main", "index": 0}]]
+    },
+    "Groq - Score": {
+      "main": [[{"node": "Parse Scores", "type": "main", "index": 0}]]
+    },
+    "Parse Scores": {
+      "main": [[{"node": "Build Line Request", "type": "main", "index": 0}]]
+    },
+    "Build Line Request": {
+      "main": [[{"node": "Groq - Personalized Line", "type": "main", "index": 0}]]
+    },
+    "Groq - Personalized Line": {
+      "main": [[{"node": "Extract Line", "type": "main", "index": 0}]]
+    },
+    "Extract Line": {
+      "main": [[{"node": "Get Template", "type": "main", "index": 0}]]
+    },
+    "Get Template": {
+      "main": [[{"node": "Render Email", "type": "main", "index": 0}]]
+    },
+    "Render Email": {
+      "main": [[{"node": "Write Scores and Email", "type": "main", "index": 0}]]
+    },
+    "WF1 Error Trigger": {
+      "main": [[{"node": "Mark Failed", "type": "main", "index": 0}]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
