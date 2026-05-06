@@ -17,7 +17,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# ── 1. Credentials ────────────────────────────────────────────────────────────
+# --- 1. Credentials -----------------------------------------------------------
 
 if (-not $Token) {
     $secure = Read-Host "Airtable PAT (schema.bases:write + data.records:write)" -AsSecureString
@@ -27,7 +27,7 @@ if (-not $Token) {
 
 if (-not $BaseId) {
     Write-Host ""
-    Write-Host "Open your Airtable base — the URL looks like:" -ForegroundColor DarkGray
+    Write-Host "Open your Airtable base - the URL looks like:" -ForegroundColor DarkGray
     Write-Host "  https://airtable.com/appXXXXXXXXXXXXXX/..." -ForegroundColor DarkGray
     Write-Host "Copy the 'appXXXXXXXXXXXXXX' part." -ForegroundColor DarkGray
     Write-Host ""
@@ -58,7 +58,7 @@ function Add-Field ($TableId, $FieldDef) {
     Invoke-AT "POST" "tables/$TableId/fields" $FieldDef | Out-Null
 }
 
-# ── 2. Shared options ─────────────────────────────────────────────────────────
+# --- 2. Shared options --------------------------------------------------------
 
 $dt = @{
     dateFormat = @{ name = "local" }
@@ -66,7 +66,7 @@ $dt = @{
     timeZone   = "client"
 }
 
-# ── 3. Create Candidates table (no formula fields yet) ───────────────────────
+# --- 3. Create Candidates table (no formula fields yet) -----------------------
 
 Write-Host "Creating Candidates table..." -ForegroundColor Cyan
 
@@ -82,8 +82,7 @@ Write-Host "  Candidates table: $candId" -ForegroundColor Green
 # Add fields one by one (avoids formula-at-creation restriction)
 $candidateFields = @(
     @{ name = "Email";                           type = "email" }
-    @{ name = "Submitted At";                    type = "createdTime";
-       options = @{ result = @{ type = "dateTime"; options = $dt } } }
+    # Submitted At (createdTime) must be added manually in Airtable UI
     @{ name = "Location";                        type = "singleLineText" }
     @{ name = "Past Experience";                 type = "multilineText" }
     @{ name = "Tools Used";                      type = "multilineText" }
@@ -136,7 +135,7 @@ Add-Field $candId @{
 
 Write-Host "Candidates table complete." -ForegroundColor Green
 
-# ── 4. Create Templates table ─────────────────────────────────────────────────
+# --- 4. Create Templates table ------------------------------------------------
 
 Write-Host "Creating Templates table..." -ForegroundColor Cyan
 
@@ -152,12 +151,7 @@ Write-Host "  Templates table: $tplId" -ForegroundColor Green
 $templateFields = @(
     @{ name = "Subject";    type = "singleLineText" }
     @{ name = "Body";       type = "multilineText" }
-    @{ name = "Updated At"; type = "lastModifiedTime";
-       options = @{
-           isValid            = $true
-           referencedFieldIds = $null
-           result             = @{ type = "dateTime"; options = $dt }
-       }}
+    # Updated At (lastModifiedTime) must be added manually in Airtable UI
 )
 
 foreach ($f in $templateFields) {
@@ -167,7 +161,7 @@ foreach ($f in $templateFields) {
 
 Write-Host "Templates table complete." -ForegroundColor Green
 
-# ── 5. Seed Templates ──────────────────────────────────────────────────────────
+# --- 5. Seed Templates --------------------------------------------------------
 
 Write-Host "Seeding Templates rows..." -ForegroundColor Cyan
 
@@ -193,7 +187,7 @@ try {
     Write-Host "Add the 3 template rows manually in Airtable." -ForegroundColor Yellow
 }
 
-# ── 6. Done ───────────────────────────────────────────────────────────────────
+# --- 6. Done ------------------------------------------------------------------
 
 Write-Host ""
 Write-Host "======================================" -ForegroundColor Green
@@ -202,7 +196,9 @@ Write-Host "======================================" -ForegroundColor Green
 Write-Host " Base ID : $BaseId"
 Write-Host " URL     : https://airtable.com/$BaseId"
 Write-Host ""
-Write-Host "NEXT STEPS:" -ForegroundColor Yellow
-Write-Host "  1. Set Status field default: Candidates -> Status -> Edit field -> Default: 'Pending Scoring'"
-Write-Host "  2. Create a Form view on Candidates and hide all AI/score/status fields"
-Write-Host "  3. Save the Base ID above - you will need it in n8n"
+Write-Host "MANUAL STEPS STILL NEEDED:" -ForegroundColor Yellow
+Write-Host "  1. Candidates table -> '+' Add field -> 'Created time' -> name it 'Submitted At' -> Save"
+Write-Host "  2. Templates table  -> '+' Add field -> 'Last modified time' -> name it 'Updated At' -> Save"
+Write-Host "  3. Candidates -> Status field -> Edit field -> set Default value to 'Pending Scoring'"
+Write-Host "  4. Create a Form view on Candidates and hide all AI/score/status fields"
+Write-Host "  5. Save the Base ID above - you will need it in n8n"
