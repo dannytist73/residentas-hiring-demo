@@ -14,6 +14,7 @@ beforeEach(() => {
   vi.mocked(listCandidates).mockResolvedValue([
     {
       id: "rec1", name: "Maria", email: "m@e.com", submittedAt: "2026-05-06T10:00:00Z",
+      jobTitle: "", jobDescription: "",
       pastExperience: "", toolsUsed: "", q1Answer: "", q2Answer: "",
       status: "Pending Review",
     },
